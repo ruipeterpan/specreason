@@ -198,7 +198,7 @@ parser.add_argument("--repeat_id", type=int, default=0,
                     help="Repeat ID (0-15, k=16)")
 parser.add_argument("--score_method", type=str, choices=["greedy", "average"], default="greedy",
                     help="Scoring method")
-parser.add_argument("--output_dir", type=str, default="/data2/ruipan/specreason/playground", 
+parser.add_argument("--output_dir", type=str, default="/data2/XXX/specreason/playground", 
                     help="Where result pickle files will be written to")
 args, _ = parser.parse_known_args()
 
@@ -253,10 +253,10 @@ try:
             logging.info(f"[Step {step_id}] score {score} rejected, falling back to base model")
             step_str, finished, num_output_tokens = generate_new_step(problem, steps_so_far, "32b", options=options)
             base_model_step, num_output_tokens_base = step_str, num_output_tokens
-        # NOTE(ruipan): potential optimization is to pipeline the decoding of these two models rather than sequentially
+        # NOTE(XXX): potential optimization is to pipeline the decoding of these two models rather than sequentially
         
         if "</think>" in step_str and not any([x in step_str for x in ["boxed", "Answer:", "ANSWER:"]]):
-            # FIXME(ruipan): handles a very rare edge case of generating a stop thinking token midway through answering.
+            # FIXME(XXX): handles a very rare edge case of generating a stop thinking token midway through answering.
             # Although it could be that thinking finished, but the last step didn't format the answer with \boxed{}
             logging.warning(f"Warning: step_str had a </think>, removing. {step_str}")
             step_str = step_str.replace("</think>", "")
@@ -283,7 +283,7 @@ try:
         step_id += 1
         
         if len(steps_so_far) > 2:
-            finished = finished or steps_so_far[-1] == steps_so_far[-2]  # NOTE(ruipan): handles another edge case where model repeats previous reasoning steps
+            finished = finished or steps_so_far[-1] == steps_so_far[-2]  # NOTE(XXX): handles another edge case where model repeats previous reasoning steps
         
         if finished or sum([m["final_num_output_tokens"] for m in metadata_list]) >= args.token_budget:
             if sum([m["final_num_output_tokens"] for m in metadata_list]) >= args.token_budget:
