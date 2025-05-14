@@ -1,6 +1,6 @@
 # SpecReason
 
-This repo contains a proof-of-concept example of the system described in the paper [SpecReason: Fast and Accurate Inference-Time Compute via Speculative Reasoning](https://arxiv.org/abs/2504.07891).
+This repo contains a proof-of-concept example of the system described in the paper SpecReason: Fast and Accurate Inference-Time Compute via Speculative Reasoning.
 
 
 ## Getting started
@@ -30,16 +30,5 @@ VLLM_USE_V1=0 vllm serve deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B --dtype auto 
 mkdir results
 OUTPUT_DIR=./results
 python spec_reason.py --dataset_name aime --problem_id 60 --repeat_id 0 --score_threshold 7.0 --score_method greedy --token_budget 8192 --output_dir "$OUTPUT_DIR"
-```
-
-## References
-
-```
-@article{pan2025specreason,
-  title={SpecReason: Fast and Accurate Inference-Time Compute via Speculative Reasoning},
-  author={Pan, Rui and Dai, Yinwei and Zhang, Zhihao and Oliaro, Gabriele and Jia, Zhihao and Netravali, Ravi},
-  journal={arXiv preprint arXiv:2504.07891},
-  year={2025}
-}
 ```
 
