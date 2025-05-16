@@ -8,16 +8,16 @@
 #SBATCH --mem=100G                            # Memory allocation (adjust as needed)
 #SBATCH --mail-type=ALL  # Options: BEGIN, END, FAIL, REQUEUE, TIME_LIMIT, etc.
 
-CLUSTER="della"
+CLUSTER="XXX"
 
 # initialization: set environment variables based on the cluster
-if [ "$CLUSTER" = "della" ]; then
-    DATA_DIR="/scratch/gpfs/XXX/data"
-    export HF_HOME="/scratch/gpfs/XXX/hf_cache"
+if [ "$CLUSTER" = "XXX" ]; then
+    DATA_DIR="/XXX/XXX/data"
+    export HF_HOME="/XXX/XXX/hf_cache"
     export HF_HUB_OFFLINE=1
     export HF_DATASETS_OFFLINE=1
     export TRANSFORMERS_OFFLINE=1
-    source /scratch/gpfs/XXX/miniconda3/etc/profile.d/conda.sh
+    source /XXX/XXX/miniconda3/etc/profile.d/conda.sh
     nvidia-smi
 else
     exit 1
