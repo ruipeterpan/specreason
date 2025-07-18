@@ -92,6 +92,7 @@ def generate_new_step(problem, steps_so_far, model_size, options=None, stop_toke
         ]
         extra_body = {"add_generation_prompt": False, "continue_final_message": True}
     
+    start_time = time.perf_counter()
     response = client.chat.completions.create(
         model=get_model(model_size),
         messages=messages,
@@ -101,13 +102,14 @@ def generate_new_step(problem, steps_so_far, model_size, options=None, stop_toke
         extra_body=extra_body,
     )
 
+    elapsed = time.perf_counter() - start_time
     step_str = response.choices[0].message.content
     # num_input_tokens = response.usage.prompt_tokens
     num_output_tokens = response.usage.completion_tokens
     # finished = "boxed" in step_str
     finished = any([x in step_str for x in ["boxed", "Answer:", "ANSWER:"]])
     
-    return step_str, finished, num_output_tokens
+    return step_str, finished, num_output_tokens, elapsed
 
 
 def get_score(args, problem, steps_so_far, model_size="32b", options=None):
@@ -121,6 +123,7 @@ def get_score(args, problem, steps_so_far, model_size="32b", options=None):
         {"role": "assistant", "content": "<think>I think the quality score is: "},
     ]
     
+    start_time = time.perf_counter()
     response = client.chat.completions.create(
         model=get_model(model_size),
         messages=messages,
@@ -133,11 +136,12 @@ def get_score(args, problem, steps_so_far, model_size="32b", options=None):
             # "return_tokens_as_token_ids": True,
         },
     )
+    elapsed = time.perf_counter() - start_time
     justification = response.choices[0].message.content
     
     score = process_logprobs(response, method=args.score_method)
     
-    return score, justification, response
+    return score, justification, elapsed
 
 
 def process_logprobs(response, method, temp=1.0):
@@ -201,7 +205,7 @@ parser.add_argument("--score_method", type=str, choices=["greedy", "average"], d
 parser.add_argument("--output_dir", type=str, default="/data2/ruipan/specreason/playground", 
                     help="Where result pickle files will be written to")
 parser.add_argument("--first_n_steps_base_model", type=int, default=0, 
-                    help="First n steps use base model only")  
+                    help="First n steps use base model only")                    
 args, _ = parser.parse_known_args()
 
 if not os.path.exists(args.output_dir):
@@ -239,31 +243,35 @@ metadata_list = []
 try:
     while True:
         warning_flag = False
+        step_time = 0
         if step_id < args.first_n_steps_base_model:  # First n steps use base model
-            base_model_step, finished, num_output_tokens_base = generate_new_step(problem, steps_so_far, "32b", options=options)
+            base_model_step, finished, num_output_tokens_base, base_model_time = generate_new_step(problem, steps_so_far, "32b", options=options)
 
-            small_model_step, num_output_tokens_small = None, None
-            score, justification = None, None
-            step_str = base_model_step
+            small_model_step, num_output_tokens_small, small_model_time = None, None, None
+            score, justification, eval_time = None, None, None
+            step_str, step_time = base_model_step, base_model_time
             steps_so_far.append(step_str)
             logging.info(f"[Step {step_id}] final step_str: {step_str}")
 
         else:
             # 1. generate a reasoning step using a small model
-            step_str, finished, num_output_tokens = generate_new_step(problem, steps_so_far, "1.5b", options=options)
+            step_str, finished, num_output_tokens, small_model_time = generate_new_step(problem, steps_so_far, "1.5b", options=options)
             small_model_step, num_output_tokens_small = step_str, num_output_tokens
+            step_time += small_model_time
 
             # 2. use the base model to score the step
-            score, justification, response = get_score(args, problem, steps_so_far + [step_str], options=options)
+            score, justification, eval_time = get_score(args, problem, steps_so_far + [step_str], options=options)
+            step_time += eval_time
             
             # 3. if over a threshold, accept. else, generate a reasoning step using the base model.
             if score is not None and score >= args.score_threshold:
                 logging.info(f"[Step {step_id}] score {score}, accepted!")
-                base_model_step, num_output_tokens_base = None, None
+                base_model_step, num_output_tokens_base, base_model_time = None, None, None
             else:
                 logging.info(f"[Step {step_id}] score {score} rejected, falling back to base model")
-                step_str, finished, num_output_tokens = generate_new_step(problem, steps_so_far, "32b", options=options)
+                step_str, finished, num_output_tokens, base_model_time = generate_new_step(problem, steps_so_far, "32b", options=options)
                 base_model_step, num_output_tokens_base = step_str, num_output_tokens
+                step_time += base_model_time
             # NOTE(ruipan): potential optimization is to pipeline the decoding of these two models rather than sequentially
             
             if "</think>" in step_str and not any([x in step_str for x in ["boxed", "Answer:", "ANSWER:"]]):
@@ -282,10 +290,14 @@ try:
             "step_str": step_str,
             "small_model_step": small_model_step,
             "num_output_tokens_small": num_output_tokens_small,
+            "small_model_time": small_model_time, 
             "score": score,
+            "eval_time": eval_time,
             "base_model_step": base_model_step,
             "num_output_tokens_base": num_output_tokens_base,
+            "base_model_time": base_model_time, 
             "final_num_output_tokens": num_output_tokens_base if num_output_tokens_base is not None else num_output_tokens_small,
+            "step_time": step_time,
             "justification": justification,
         }
         if warning_flag:
